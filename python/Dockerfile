@@ -27,6 +27,7 @@ EXPOSE 9000
 
 RUN addgroup -S mercari && adduser -S trainee -G mercari
 RUN chown -R trainee:mercari /app/db
+RUN chown -R trainee:mercari /app/images
 
 USER trainee
 

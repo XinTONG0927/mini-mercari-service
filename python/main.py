@@ -101,10 +101,11 @@ async def Add_item(
         # save img
         read = await image_file.read()
         image_name = hashlib.sha256(read).hexdigest()
-        with (images_dir / f"{image_name}.jpg").open('wb') as f:
+        image_name = f"{image_name}.jpg"
+        with (images_dir / image_name).open('wb') as f:
             f.write(read)
 
-    insert_item(Item(name=name, category=category, image_name=f"{image_name}.jpg"))
+    insert_item(Item(name=name, category=category, image_name=image_name))
 
     return AddItemResponse(**{"message": f"item received: {name}"})
 
