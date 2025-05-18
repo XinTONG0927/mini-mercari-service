@@ -26,7 +26,7 @@ COPY . .
 EXPOSE 9000
 
 RUN addgroup -S mercari && adduser -S trainee -G mercari
-RUN chown -R trainee:mercari /app/python/db
+RUN chown -R trainee:mercari /app/db
 
 USER trainee
 
