@@ -21,7 +21,7 @@ DB = pathlib.Path(__file__).parent.resolve() / "db" / "mercari.sqlite3"
 @contextmanager
 def get_db():
     if not DB.exists():
-        raise FileNotFoundError(f"Database {DB} does not exist.")
+        sqlite3.connect(DB).close()
 
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
