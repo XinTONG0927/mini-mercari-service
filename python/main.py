@@ -51,6 +51,7 @@ def setup_database():
             schema = f.read()
         with safe_cursor(db) as cursor:
             cursor.execute(schema)
+        db.commit()
 
 
 @asynccontextmanager
