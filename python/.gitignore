@@ -1,2 +1,11 @@
 .venv/
 __pycache__/
+
+# IDE config
+.idea/
+.vscode/
+
+*.log
+*.tmp
+
+.DS_Store
