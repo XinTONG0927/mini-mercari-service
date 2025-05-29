@@ -3,7 +3,7 @@
 This is Xin TONG's build training repository.
 Forked from [Build@Mercari Training Program](https://github.com/mercari-build/mercari-build-training)
 
-It realized a small web-service called *mini-mercari* like ![example](example.jpg)  where you can add items into the database and their info will be listed below.
+It realized a small web-service called *mini-mercari* like ![example](example.jpg)  where you can add items into the database and their info will be listed below. (*Front-end codes are provided by mercari)
 
 ## Tasks
 
