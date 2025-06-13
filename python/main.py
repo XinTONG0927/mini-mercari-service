@@ -11,22 +11,22 @@ from contextlib import contextmanager, asynccontextmanager
 #---newly added---
 import hashlib
 from typing import Optional, List
-from fastapi.concurrency import run_in_threadpool
 
 
 # Define the path to the images & sqlite3 database
 images_dir = pathlib.Path(__file__).parent.resolve() / "images"
 DB = pathlib.Path(__file__).parent.resolve() / "db" / "mercari.sqlite3"
 
-@contextmanager
 def get_db():
+
     if not DB.exists():
-        sqlite3.connect(DB).close()
+        yield
 
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
     try:
         yield conn
+
     finally:
         conn.close()
 
@@ -46,12 +46,15 @@ def safe_cursor(db: sqlite3.Connection):
 # STEP 5-1: set up the database connection
 def setup_database():
     sql_schema = pathlib.Path(__file__).parent.resolve() / "db" / "items.sql"
-    with get_db() as db:
+    db = sqlite3.connect(DB)
+    try:
         with sql_schema.open("r") as f:
             schema = f.read()
         with safe_cursor(db) as cursor:
             cursor.execute(schema)
         db.commit()
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -88,24 +91,25 @@ class AddItemResponse(BaseModel):
 
 # add_item is a handler to add a new item for POST /items .
 @app.post("/items", response_model=AddItemResponse)
-async def Add_item(
+def Add_item(
     name: str = Form(...),
     category: str = Form(...),
-    image_file: UploadFile = File(None)
+    image: UploadFile = File(None),
+    db: sqlite3.Connection = Depends(get_db)
 ):
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
 
     image_name = None
-    if image_file is not None:
+    if image is not None:
         # save img
-        read = await image_file.read()
+        read = image.file.read()
         image_name = hashlib.sha256(read).hexdigest()
         image_name = f"{image_name}.jpg"
         with (images_dir / image_name).open('wb') as f:
             f.write(read)
 
-    insert_item(Item(name=name, category=category, image_name=image_name))
+    insert_item(Item(name=name, category=category, image_name=image_name), db)
 
     return AddItemResponse(**{"message": f"item received: {name}"})
 
@@ -134,37 +138,38 @@ class Item(BaseModel):
     image_name: Optional[str] = None
 
 # STEP 4-2: add an implementation to store an item
-def insert_item(item: Item):
+def insert_item(item: Item, db: sqlite3.Connection):
     table_name = "items"
-    with get_db() as db:
-        with safe_cursor(db) as cursor:
-            cursor.execute(f"Insert into {table_name} (id, name, category, image_name) "
-                                f"values (NULL, ?, ?, ?)", (item.name, item.category, item.image_name))
-        db.commit()
+    with safe_cursor(db) as cursor:
+        cursor.execute(f"Insert into {table_name} (id, name, category, image_name) "
+                            f"values (NULL, ?, ?, ?)", (item.name, item.category, item.image_name))
+    db.commit()
 
+class Item_return(Item):
+    id: int
 
 class GetItemResponse(BaseModel):
-    items: List[Item]
+    items: List[Item_return]
 
 @app.get("/items", response_model=GetItemResponse)
-def GetItems():
+def GetItems(db: sqlite3.Connection = Depends(get_db)):
     table_name = "items"
 
-    with get_db() as db:
-        with safe_cursor(db) as cursor:
-            cursor.execute(f"Select * from {table_name}")
-            items = [dict(row) for row in cursor.fetchall()]
+    with safe_cursor(db) as cursor:
+        cursor.execute(f"Select * from {table_name}")
+        items = [dict(row) for row in cursor.fetchall()]
 
     return GetItemResponse(items=items)
 
 @app.get("/search", response_model=GetItemResponse)
-def Search_item(keyword: str):
+def Search_item(keyword: str, db: sqlite3.Connection = Depends(get_db)):
     table_name = "items"
 
-    with get_db() as db:
-        with safe_cursor(db) as cursor:
-            like_pattern = f"%{keyword}%"
-            cursor.execute(f"SELECT * FROM {table_name} WHERE name LIKE ?", (like_pattern,))
-            items = [dict(row) for row in cursor.fetchall()]
+    with safe_cursor(db) as cursor:
+        like_pattern = f"%{keyword}%"
+        cursor.execute(f"SELECT * FROM {table_name} WHERE name LIKE ?", (like_pattern,))
+        items = [dict(row) for row in cursor.fetchall()]
 
     return GetItemResponse(items=items)
+
+
